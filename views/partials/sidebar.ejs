@@ -1,0 +1,254 @@
+<!-- Column 1: Left Sidebar — Notion-style unified command center -->
+<aside class="w-full h-screen bg-zinc-950 border-r border-zinc-800/60 flex flex-col overflow-hidden transition-colors duration-300">
+
+  <!-- Logo -->
+  <div class="px-4 py-4 border-b border-zinc-800/60 flex-shrink-0">
+    <a href="/dashboard" class="flex items-center gap-2 group">
+      <div class="w-6 h-6 rounded-md bg-violet-600 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-500 transition-colors">
+        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3
+               m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547
+               A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531
+               c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+      </div>
+      <span class="text-sm text-white font-semibold tracking-tight">StudyMind AI</span>
+    </a>
+  </div>
+
+  <!-- Upload button -->
+  <div class="px-3 pt-3 pb-2 flex-shrink-0">
+    <button id="uploadBtn"
+      class="w-full flex items-center justify-center gap-1.5 bg-white hover:bg-zinc-100 text-zinc-900 text-[11px] font-semibold py-2 rounded-lg transition-colors">
+      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+      </svg>
+      New Document
+    </button>
+  </div>
+
+  <!-- Scrollable tree: Home / Documents / Flashcard Decks -->
+  <div class="flex-1 overflow-y-auto px-2 py-1 space-y-4">
+
+    <!-- 🏠 HOME / RECENT ACTIVITY -->
+    <div>
+      <p class="text-[9px] font-semibold uppercase tracking-widest text-zinc-600 px-2 mb-1.5 mt-1 flex items-center gap-1.5">
+        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V10"/>
+        </svg>
+        Home
+      </p>
+      <div class="px-2.5 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800/60 mx-0.5">
+        <div class="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
+          <span>Documents</span>
+          <span class="text-zinc-300 font-semibold"><%= documents.length %></span>
+        </div>
+        <div class="flex items-center justify-between text-[10px] text-zinc-500">
+          <span>Flashcards saved</span>
+          <span class="text-amber-400 font-semibold"><%= (flashcards || []).length %></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 📂 DOCUMENTS / FILES -->
+    <div>
+      <p class="text-[9px] font-semibold uppercase tracking-widest text-zinc-600 px-2 mb-1.5 flex items-center gap-1.5">
+        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+        </svg>
+        Documents
+      </p>
+
+      <% documents.forEach(doc => {
+        const isActive = (typeof document !== 'undefined' && document && document._id.toString() === doc._id.toString());
+      %>
+        <div class="doc-item group flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors
+                    <%= isActive ? 'bg-zinc-800' : 'hover:bg-zinc-900' %>"
+             data-id="<%= doc._id %>">
+
+          <!-- PDF icon -->
+          <svg class="w-3 h-3 flex-shrink-0 <%= isActive ? 'text-violet-400' : 'text-zinc-600 group-hover:text-zinc-400' %> transition-colors"
+               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414
+                 A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+
+          <!-- Title (clickable link) -->
+          <a href="/pdf/<%= doc._id %>" class="flex-1 min-w-0">
+            <p class="text-[11px] <%= isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200' %> truncate leading-tight transition-colors">
+              <%= doc.title %>
+            </p>
+          </a>
+
+          <!-- Delete button — visible on hover -->
+          <button
+            class="delete-doc-btn flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-zinc-700"
+            data-id="<%= doc._id %>"
+            title="Delete document">
+            <svg class="w-3 h-3 text-zinc-500 hover:text-red-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </div>
+      <% }) %>
+
+      <% if (documents.length === 0) { %>
+        <div class="px-2.5 py-3 text-center">
+          <p class="text-[10px] text-zinc-600">No documents yet.</p>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- 🗂️ FLASHCARD DECKS (grouped by source document) -->
+    <div>
+      <p class="text-[9px] font-semibold uppercase tracking-widest text-zinc-600 px-2 mb-1.5 flex items-center gap-1.5">
+        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/>
+        </svg>
+        Flashcard Decks
+      </p>
+
+      <%
+        // Group flashcards by their source document for the deck tree
+        const deckFolders = {};
+        (flashcards || []).forEach(card => {
+          const docId    = card.documentId && card.documentId._id ? card.documentId._id.toString() : (card.documentId ? card.documentId.toString() : 'unknown');
+          const docTitle = card.documentTitle || (card.documentId && card.documentId.title) || 'Untitled Document';
+          if (!deckFolders[docId]) deckFolders[docId] = { title: docTitle, cards: [] };
+          deckFolders[docId].cards.push({ id: card._id.toString(), front: card.front, back: card.back });
+        });
+        const deckList = Object.entries(deckFolders);
+      %>
+
+      <% deckList.forEach(([docId, deck]) => { %>
+        <button
+          class="open-deck-btn w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-zinc-900 transition-colors text-left group"
+          data-deck-id="<%= docId %>">
+          <svg class="w-3 h-3 flex-shrink-0 text-zinc-600 group-hover:text-amber-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+          <span class="text-[11px] text-zinc-400 group-hover:text-zinc-200 truncate flex-1 transition-colors"><%= deck.title %></span>
+          <span class="text-[9px] text-zinc-600 flex-shrink-0"><%= deck.cards.length %></span>
+        </button>
+      <% }) %>
+
+      <% if (deckList.length === 0) { %>
+        <div class="px-2.5 py-3 text-center">
+          <p class="text-[10px] text-zinc-600">No flashcard decks yet.</p>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Hidden JSON payload consumed by client JS to render deck modal contents -->
+    <script id="deckData" type="application/json">
+      <%- JSON.stringify(deckList.map(([docId, deck]) => ({ id: docId, title: deck.title, cards: deck.cards }))).replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--') %>
+    </script>
+  </div>
+
+  <!-- Bottom section: user row -->
+  <div class="px-2 py-3 border-t border-zinc-800/60 flex-shrink-0">
+    <div class="flex items-center gap-2 px-2.5 py-1.5">
+      <div class="w-5 h-5 rounded-full bg-violet-700 flex items-center justify-center flex-shrink-0">
+        <span class="text-[9px] text-white font-bold"><%= username ? username[0].toUpperCase() : 'U' %></span>
+      </div>
+      <span class="text-[11px] text-zinc-500 flex-1 truncate"><%= username %></span>
+      <a href="/auth/logout" title="Sign out"
+        class="text-zinc-700 hover:text-red-400 transition-colors p-0.5 rounded">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</aside>
+
+<!-- ── Upload Modal ─────────────────────────────────────────────────────────── -->
+<div id="uploadModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-zinc-900 border border-zinc-700/60 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-white font-semibold text-sm">Upload a PDF</h2>
+      <button id="closeModal" class="text-zinc-600 hover:text-white transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Drop zone -->
+    <div id="dropZone"
+      class="border-2 border-dashed border-zinc-700 hover:border-violet-500 rounded-xl p-8 text-center mb-4 cursor-pointer transition-colors group">
+      <div class="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center mx-auto mb-3 group-hover:bg-zinc-700 transition-colors">
+        <svg class="w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+      </div>
+      <p class="text-zinc-400 text-xs">
+        Drop your PDF here or
+        <span class="text-violet-400 hover:text-violet-300 cursor-pointer transition-colors" id="browseBtn">browse files</span>
+      </p>
+      <p class="text-zinc-700 text-[10px] mt-1">PDF only · Max 50 MB</p>
+      <input type="file" id="fileInput" accept=".pdf" class="hidden" />
+    </div>
+
+    <!-- Upload progress -->
+    <div id="uploadProgress" class="hidden mb-4">
+      <div class="flex items-center gap-2 mb-2">
+        <svg class="w-3.5 h-3.5 text-violet-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+        </svg>
+        <span id="uploadFileName" class="text-xs text-zinc-300 truncate flex-1"></span>
+      </div>
+      <div class="h-1 bg-zinc-800 rounded-full overflow-hidden">
+        <div id="progressBar" class="h-full bg-violet-500 rounded-full transition-all duration-500" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Title input -->
+    <input type="text" id="docTitle" placeholder="Document title (optional)"
+      class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-xs mb-4
+             placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-colors" />
+
+    <div class="flex gap-2">
+      <button id="cancelUpload"
+        class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs py-2.5 rounded-lg transition-colors font-medium">
+        Cancel
+      </button>
+      <button id="confirmUpload"
+        class="flex-1 bg-white hover:bg-zinc-100 text-zinc-900 text-xs py-2.5 rounded-lg transition-colors font-semibold">
+        Upload
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Flashcard Deck modal overlay ─────────────────────────────────────────── -->
+<div id="deckModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-zinc-900 border border-zinc-700/60 rounded-2xl p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl">
+    <div class="flex items-center justify-between mb-5">
+      <h2 id="deckModalTitle" class="text-white font-semibold text-sm"></h2>
+      <button id="closeDeckModal" class="text-zinc-600 hover:text-white transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="deckModalGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+  </div>
+</div>
+
+<!-- ── Delete confirmation toast ─────────────────────────────────────────────── -->
+<div id="deleteToast"
+  class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 shadow-2xl flex items-center gap-3 text-xs text-white">
+  <svg class="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+  </svg>
+  <span id="deleteToastMsg">Document deleted.</span>
+</div>

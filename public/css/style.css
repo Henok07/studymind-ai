@@ -1,0 +1,30 @@
+/* style.css — Global overrides and custom utilities */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Sora:wght@600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display { font-family: 'Sora', sans-serif; }
+
+/* PDF iframe focus ring suppression */
+iframe:focus { outline: none; }
+
+/* Smooth scroll for chat */
+#chatMessages { scroll-behavior: smooth; }
+
+/* Ensure tab content fills available space */
+.tab-content.flex { display: flex !important; }
+.tab-content.hidden { display: none !important; }
+
+/* Prevent text selection flicker on menu buttons */
+#selectionMenu button { user-select: none; }
+
+/* Custom scrollbar for webkit */
+* { scrollbar-width: thin; scrollbar-color: #334155 transparent; }

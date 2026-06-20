@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyMind AI<%= document ? ' — ' + document.title : '' %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+
+    /* ── Floating AI context menu ── */
+    #selectionMenu {
+      position: fixed;
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+      background: #141414;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      padding: 4px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+      min-width: 168px;
+      gap: 1px;
+    }
+    #selectionMenu button {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 10px; border-radius: 7px;
+      font-size: 11.5px; font-weight: 500; color: #a1a1aa;
+      cursor: pointer; white-space: nowrap;
+      transition: background 0.12s, color 0.12s;
+      background: transparent; border: none; width: 100%; text-align: left;
+      font-family: 'Inter', sans-serif;
+    }
+    #selectionMenu button:hover               { background: rgba(255,255,255,0.06); color: #fff; }
+    #selectionMenu .explain-btn svg           { color: #a78bfa; }
+    #selectionMenu .quiz-btn svg              { color: #34d399; }
+    #selectionMenu .fc-btn svg                { color: #fbbf24; }
+    #selectionMenu .summarize-btn svg         { color: #60a5fa; }
+    #selectionMenu .exam-btn svg              { color: #f87171; }
+    #selectionMenu .menu-divider {
+      height: 1px; background: rgba(255,255,255,0.06); margin: 2px 6px;
+    }
+
+    /* ── PDF viewer area ── */
+    #pdfViewerContainer {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: auto;
+      background: #111111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px;
+      gap: 14px;
+      position: relative;
+      cursor: text;
+    }
+
+    .pdf-page-wrapper {
+      position: relative;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.6);
+      border-radius: 3px;
+      /* IMPORTANT: do NOT set overflow:hidden here. With border-radius
+         this previously clipped a sliver of the text layer's right edge
+         whenever its rounded width didn't pixel-perfectly match the
+         wrapper's — exactly the "letters I can't reach" bug. Corner
+         rounding is now applied to the canvas itself instead, so the
+         text layer's clickable area is never clipped by its parent. */
+      flex-shrink: 0;
+    }
+    .pdf-page-wrapper canvas {
+      display: block;
+      border-radius: 3px;
+    }
+
+    /* ── PDF.js text layer — EXACT official rules from pdf_viewer.css ───────
+       These rules are mandatory. The island/gap highlight bug was caused by
+       missing the transform chain that reads --scale-x and --rotate CSS
+       variables. PDF.js sets those variables per-span via JS; without this
+       CSS rule they are never applied as actual transforms, so spans render
+       at their natural browser width instead of their correct PDF width.
+
+       Key rules:
+       - .textLayer uses inset:0 + overflow:clip (not hidden — clip doesn't
+         create a new BFC so percentage positions resolve correctly)
+       - span transform chain: rotate(--rotate) scaleX(--scale-x) scale(--min-font-size-inv)
+       - font-size uses --text-scale-factor * --font-height (both set by PDF.js)
+       - --total-scale-factor drives setLayerDimensions() width/height via round()
+    ─────────────────────────────────────────────────────────────────────── */
+    .textLayer {
+      position: absolute;
+      text-align: initial;
+      inset: 0;
+      overflow: clip;
+      opacity: 1;
+      line-height: 1;
+      letter-spacing: normal;
+      word-spacing: normal;
+      -webkit-text-size-adjust: none;
+         -moz-text-size-adjust: none;
+              text-size-adjust: none;
+      forced-color-adjust: none;
+      transform-origin: 0 0;
+      caret-color: CanvasText;
+      z-index: 0;
+
+      /* CSS variable cascade — these default values are overridden per-span by JS */
+      --min-font-size: 1;
+      --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+      --min-font-size-inv: calc(1 / var(--min-font-size));
+    }
+    .textLayer.highlighting { touch-action: none; }
+
+    .textLayer :is(span, br) {
+      color: transparent;
+      position: absolute;
+      white-space: pre;
+      cursor: text;
+      transform-origin: 0% 0%;
+      -webkit-user-select: text;
+         -moz-user-select: text;
+              user-select: text;
+    }
+
+    /* THE CRITICAL RULE — applies scaleX and rotation set by PDF.js per span.
+       Without this, --scale-x is set by JS but never read, so every span
+       renders at natural browser text width instead of PDF glyph width.
+       This is what causes the "island" / "fragmented" selection pattern. */
+    .textLayer > :not(.markedContent),
+    .textLayer .markedContent span:not(.markedContent) {
+      z-index: 1;
+      --font-height: 0;
+      font-size: calc(var(--text-scale-factor) * var(--font-height));
+      --scale-x: 1;
+      --rotate: 0deg;
+      transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+    }
+
+    .textLayer .markedContent {
+      display: contents;
+    }
+
+    .textLayer .endOfContent {
+      display: block;
+      position: absolute;
+      inset: 100% 0 0;
+      z-index: 0;
+      cursor: default;
+      -webkit-user-select: none;
+         -moz-user-select: none;
+              user-select: none;
+    }
+    .textLayer.selecting .endOfContent { top: 0; }
+
+    /* Selection highlight colour — override transparent default */
+    .textLayer ::-moz-selection { background: rgba(124,58,237,0.35); }
+    .textLayer ::selection       { background: rgba(124,58,237,0.35); }
+    .textLayer br::-moz-selection { background: rgba(124,58,237,0.35); }
+    .textLayer br::selection      { background: rgba(124,58,237,0.35); }
+
+
+    /* ── Chat message styles ── */
+    .msg-user {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .msg-ai-content {
+      line-height: 1.75; color: #a1a1aa; font-size: 12.5px;
+    }
+    .msg-ai-content p         { margin-bottom: 0.65em; }
+    .msg-ai-content strong    { color: #fff; font-weight: 600; }
+    .msg-ai-content em        { color: #d4d4d8; }
+    .msg-ai-content code      { background: #1c1c1c; border: 1px solid #2d2d2d; padding: 1px 5px; border-radius: 4px; font-size: 11px; font-family: monospace; color: #a78bfa; }
+    .msg-ai-content ul        { list-style: disc; padding-left: 1.1rem; margin-bottom: 0.65em; }
+    .msg-ai-content li        { margin-bottom: 0.2em; }
+    .msg-ai-content h1,.msg-ai-content h2,.msg-ai-content h3 { color: #fff; font-weight: 600; margin: 0.75em 0 0.4em; }
+    .msg-ai-content h1        { font-size: 13.5px; }
+    .msg-ai-content h2        { font-size: 12.5px; }
+    .msg-ai-content h3        { font-size: 12px; }
+
+    /* ── Quiz styles ── */
+    .quiz-option {
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .quiz-option:hover:not(.answered) {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(124,58,237,0.5) !important;
+    }
+    .quiz-option.correct  { background: rgba(16,185,129,0.08) !important; border-color: #10b981 !important; }
+    .quiz-option.incorrect{ background: rgba(239,68,68,0.08)  !important; border-color: #ef4444 !important; }
+
+    /* ── 3D Flashcard ── */
+    .flashcard-3d { perspective: 1000px; height: 156px; }
+    .flashcard-inner {
+      position: relative; width: 100%; height: 100%;
+      transform-style: preserve-3d; transition: transform 0.42s ease;
+    }
+    .flashcard-3d.flipped .flashcard-inner { transform: rotateY(180deg); }
+    .flashcard-face {
+      position: absolute; inset: 0;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+      border-radius: 10px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 12px 14px;
+    }
+    .flashcard-back-face { transform: rotateY(180deg); }
+
+    /* ── Nav bar controls ── */
+    #pdfNavBar { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #71717a; }
+    #pdfNavBar button {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+      color: #a1a1aa; border-radius: 6px; padding: 2px 8px; cursor: pointer;
+      font-size: 11px; transition: background 0.12s; font-family: inherit;
+    }
+    #pdfNavBar button:hover    { background: rgba(255,255,255,0.10); }
+    #pdfNavBar button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ── Loading message ── */
+    #pdfLoadingMsg { color: #52525b; font-size: 12px; text-align: center; padding: 60px 20px; }
+
+    /* ── Scrollbars ── */
+    * { scrollbar-width: thin; scrollbar-color: #27272a transparent; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+    /* Tab active state */
+    .tab-btn.active { background: rgba(255,255,255,0.08); color: #fff; }
+
+    /* ════════════ SIDEBAR COLLAPSE MECHANIC ════════════ */
+    #sidebarContainer {
+      transition: width 0.3s ease, min-width 0.3s ease, opacity 0.25s ease;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    #sidebarContainer.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      opacity: 0;
+      border-right-width: 0 !important;
+    }
+    #pdfMainCol {
+      transition: width 0.3s ease;
+    }
+    /* Sidebar toggle (always visible, sits at left edge) */
+    #sidebarToggle {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 40;
+      width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 7px;
+      color: #a1a1aa;
+      cursor: pointer;
+      transition: background 0.15s, left 0.3s ease;
+    }
+    #sidebarToggle:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    #sidebarToggle svg { transition: transform 0.3s ease; }
+    #sidebarToggle.is-collapsed svg { transform: rotate(180deg); }
+
+    /* ════════════ LIGHT MODE THEME OVERRIDES ════════════ */
+    body.light-mode { background: #ffffff; color: #121212; }
+    body.light-mode .bg-zinc-950   { background: #ffffff !important; }
+    body.light-mode .bg-\[\#111111\] { background: #fafafa !important; }
+    body.light-mode #pdfViewerContainer { background: #f4f4f5 !important; }
+    body.light-mode .bg-zinc-900   { background: #fafafa !important; }
+    body.light-mode .bg-zinc-800   { background: #f4f4f5 !important; }
+    body.light-mode .border-zinc-800\/60,
+    body.light-mode .border-zinc-800   { border-color: #e4e4e7 !important; }
+    body.light-mode .border-zinc-700   { border-color: #d4d4d8 !important; }
+    body.light-mode .text-white        { color: #121212 !important; }
+    body.light-mode .text-zinc-400     { color: #52525b !important; }
+    body.light-mode .text-zinc-500     { color: #71717a !important; }
+    body.light-mode .text-zinc-600     { color: #a1a1aa !important; }
+    body.light-mode .text-zinc-700     { color: #a1a1aa !important; }
+    body.light-mode .hover\:bg-zinc-800:hover,
+    body.light-mode .hover\:bg-zinc-900:hover { background: #f4f4f5 !important; }
+
+    body.light-mode #selectionMenu {
+      background: #ffffff;
+      border-color: #e4e4e7;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.03);
+    }
+    body.light-mode #selectionMenu button { color: #52525b; }
+    body.light-mode #selectionMenu button:hover { background: #f4f4f5; color: #121212; }
+    body.light-mode #selectionMenu .menu-divider { background: #e4e4e7; }
+
+    body.light-mode .msg-user {
+      background: #f4f4f5; border-color: #e4e4e7;
+    }
+    body.light-mode .msg-ai-content { color: #3f3f46; }
+    body.light-mode .msg-ai-content strong { color: #121212; }
+    body.light-mode .msg-ai-content code { background: #f4f4f5; border-color: #e4e4e7; color: #7c3aed; }
+    body.light-mode .msg-ai-content h1, body.light-mode .msg-ai-content h2, body.light-mode .msg-ai-content h3 { color: #121212; }
+
+    body.light-mode .quiz-option { border-color: #e4e4e7 !important; color: #3f3f46; }
+    body.light-mode .quiz-option:hover:not(.answered) { background: #f4f4f5; }
+    body.light-mode .quiz-option.correct   { background: rgba(16,185,129,0.08) !important; }
+    body.light-mode .quiz-option.incorrect { background: rgba(239,68,68,0.08) !important; }
+
+    body.light-mode .flashcard-face { background: #fafafa !important; border-color: #e4e4e7 !important; }
+    body.light-mode #pdfNavBar button { background: #f4f4f5; border-color: #e4e4e7; color: #52525b; }
+    body.light-mode #sidebarToggle { background: #f4f4f5; border-color: #e4e4e7; color: #52525b; }
+    body.light-mode #sidebarToggle:hover { background: #e4e4e7; color: #121212; }
+    body.light-mode #chatInput { color: #121212; }
+    body.light-mode #chatInput::placeholder { color: #a1a1aa; }
+
+    /* Theme toggle icon swap */
+    .theme-icon-moon { display: inline-flex; }
+    .theme-icon-sun   { display: none; }
+    body.light-mode .theme-icon-moon { display: none; }
+    body.light-mode .theme-icon-sun   { display: inline-flex; }
+
+    /* ════════════ EMPTY WORKSPACE STATE (no document loaded) ════════════ */
+    #emptyWorkspaceState {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; text-align: center; padding: 40px;
+    }
+  </style>
+</head>
+<body class="h-screen overflow-hidden bg-zinc-950 flex">
+
+<!-- ── COLUMN 1: Sidebar (collapsible, Notion-style command center) ───────── -->
+<div id="sidebarContainer" class="w-[20%] h-screen">
+  <%- include('partials/sidebar', { documents, flashcards, username, document }) %>
+</div>
+
+<!-- ── COLUMN 2: PDF Viewer ──────────────────────────────────────────────── -->
+<main id="pdfMainCol" class="w-[50%] h-screen flex flex-col bg-[#111111] overflow-hidden relative transition-all duration-300">
+
+  <!-- Sidebar collapse toggle — floats at top-left edge of Column 2 -->
+  <button id="sidebarToggle" title="Toggle sidebar">
+    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+    </svg>
+  </button>
+
+  <% if (document) { %>
+    <!-- Header bar -->
+    <div class="flex-shrink-0 h-10 bg-zinc-950 border-b border-zinc-800/60 flex items-center px-4 gap-3 pl-12 transition-colors duration-300">
+      <svg class="w-3 h-3 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+      </svg>
+      <span class="text-xs text-zinc-400 truncate flex-1 font-medium"><%= document.title %></span>
+
+      <!-- Page nav -->
+      <div id="pdfNavBar">
+        <button id="prevPage" disabled>‹</button>
+        <span id="pageInfo" class="text-[10px] text-zinc-600 tabular-nums">— / —</span>
+        <button id="nextPage" disabled>›</button>
+        <span class="text-zinc-800 mx-0.5">|</span>
+        <button id="zoomOut">−</button>
+        <span id="zoomLabel" class="text-[10px] text-zinc-600 tabular-nums w-8 text-center">140%</span>
+        <button id="zoomIn">+</button>
+      </div>
+
+      <!-- Theme toggle -->
+      <button id="themeToggle" title="Toggle light / dark mode"
+        class="w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/10 transition-colors ml-1">
+        <svg class="theme-icon-moon w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+        <svg class="theme-icon-sun w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+      </button>
+
+      <a href="<%= document.fileUrl %>" target="_blank" download
+        class="text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors">↓</a>
+    </div>
+
+    <!-- PDF canvas area -->
+    <div id="pdfViewerContainer">
+      <div id="pdfLoadingMsg">
+        <div class="inline-block w-6 h-6 rounded-full border-2 border-violet-600 border-t-transparent animate-spin mb-3"></div>
+        <p>Loading PDF…</p>
+      </div>
+    </div>
+
+    <!-- Hint bar -->
+    <div class="flex-shrink-0 h-7 bg-zinc-950 border-t border-zinc-800/60 flex items-center px-4">
+      <p class="text-[10px] text-zinc-700">Select text to get AI actions — or right-click after highlighting</p>
+    </div>
+  <% } else { %>
+    <!-- Empty workspace shell — no document loaded yet -->
+    <div class="flex-shrink-0 h-10 bg-zinc-950 border-b border-zinc-800/60 flex items-center px-4 pl-12">
+      <span class="text-xs text-zinc-600 font-medium">No document open</span>
+      <button id="themeToggle" title="Toggle light / dark mode"
+        class="w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/10 transition-colors ml-auto">
+        <svg class="theme-icon-moon w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+        <svg class="theme-icon-sun w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+      </button>
+    </div>
+    <div id="emptyWorkspaceState">
+      <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4">
+        <svg class="w-7 h-7 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <p class="text-zinc-400 text-sm font-medium mb-1">No document open yet</p>
+      <p class="text-zinc-600 text-xs max-w-[260px]">Upload a PDF from the sidebar, or click a document from your list to start studying.</p>
+    </div>
+  <% } %>
+</main>
+
+<!-- ── COLUMN 3: AI Workspace ─────────────────────────────────────────────── -->
+<%- include('partials/ai-workspace') %>
+
+<!-- ── FLOATING SELECTION MENU ───────────────────────────────────────────── -->
+<div id="selectionMenu">
+  <!-- Short text (< 1000 words) -->
+  <div id="shortActions">
+    <button class="explain-btn" data-action="explain">
+      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      Explain
+    </button>
+    <button class="quiz-btn" data-action="quiz">
+      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7l2 2 4-4"/>
+      </svg>
+      Generate Quiz
+    </button>
+    <button class="fc-btn" data-action="flashcards">
+      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+      </svg>
+      Create Flashcards
+    </button>
+  </div>
+  <div class="menu-divider" id="menuDivider" style="display:none"></div>
+  <!-- Long text (≥ 1000 words) -->
+  <div id="longActions" style="display:none">
+    <button class="summarize-btn" data-action="summarize">
+      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7"/>
+      </svg>
+      Summarize Section
+    </button>
+    <button class="exam-btn" data-action="exam">
+      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      Generate Mock Exam
+    </button>
+  </div>
+</div>
+
+<!-- ── DATA ───────────────────────────────────────────────────────────────── -->
+<% if (document) { %>
+<script>
+  const DOCUMENT_ID = '<%= document._id %>';
+  const PDF_URL     = window.location.origin + '<%= document.fileUrl %>';
+</script>
+<% } else { %>
+<script>
+  const DOCUMENT_ID = null;
+  const PDF_URL     = null;
+</script>
+<% } %>
+
+<script src="/js/ai-tabs.js"></script>
+<% if (document) { %>
+  <script type="module" src="/js/pdf-viewer.js"></script>
+<% } %>
+
+<!-- ── SIDEBAR COLLAPSE + THEME TOGGLE LOGIC ─────────────────────────────── -->
+<script>
+  (function () {
+    // ── Collapsible sidebar with fluid Column 2 resizing ──
+    const sidebarContainer = document.getElementById('sidebarContainer');
+    const sidebarToggle     = document.getElementById('sidebarToggle');
+    const pdfMainCol        = document.getElementById('pdfMainCol');
+
+    let sidebarCollapsed = false;
+
+    sidebarToggle.addEventListener('click', () => {
+      sidebarCollapsed = !sidebarCollapsed;
+
+      sidebarContainer.classList.toggle('collapsed', sidebarCollapsed);
+      sidebarToggle.classList.toggle('is-collapsed', sidebarCollapsed);
+
+      // Column 2 fluidly expands to absorb the freed-up 20% when sidebar hides,
+      // since Column 3 (AI panel) stays fixed at 30%.
+      if (sidebarCollapsed) {
+        sidebarContainer.style.width = '0%';
+        pdfMainCol.style.width       = '70%';
+      } else {
+        sidebarContainer.style.width = '20%';
+        pdfMainCol.style.width       = '50%';
+      }
+
+      // Re-render PDF pages after the transition completes so canvas
+      // dimensions stay crisp at the new viewport width.
+      setTimeout(() => {
+        if (window.pdfViewer && typeof window.pdfViewer.refreshLayout === 'function') {
+          window.pdfViewer.refreshLayout();
+        }
+      }, 320);
+    });
+
+    // ── Theme toggle (Sun/Moon) — may appear in either header variant ──
+    document.querySelectorAll('#themeToggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.body.classList.toggle('light-mode');
+      });
+    });
+  })();
+</script>
+</body>
+</html>

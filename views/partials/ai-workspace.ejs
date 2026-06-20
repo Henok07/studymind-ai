@@ -1,0 +1,133 @@
+<!-- Column 3: Right AI Panel — zinc dark theme -->
+<aside class="w-[30%] h-screen bg-zinc-950 border-l border-zinc-800/60 flex flex-col overflow-hidden transition-colors duration-300">
+
+  <!-- Sticky Tab Row -->
+  <div class="flex-shrink-0 px-3 pt-3 pb-0 border-b border-zinc-800/60">
+    <div class="flex gap-1 bg-zinc-900 rounded-lg p-1">
+      <button data-tab="chat"
+        class="tab-btn flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all text-zinc-500 hover:text-white">
+        <span class="flex items-center justify-center gap-1">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+          </svg>
+          Chat
+        </span>
+      </button>
+      <button data-tab="quiz"
+        class="tab-btn flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all text-zinc-500 hover:text-white">
+        <span class="flex items-center justify-center gap-1">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7l2 2 4-4"/>
+          </svg>
+          Quiz
+        </span>
+      </button>
+      <button data-tab="flashcards"
+        class="tab-btn flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all text-zinc-500 hover:text-white">
+        <span class="flex items-center justify-center gap-1">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+          </svg>
+          Cards
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── CHAT TAB ──────────────────────────────────────────────────────────── -->
+  <div id="tab-chat" class="tab-content flex flex-col flex-1 overflow-hidden">
+    <div id="chatMessages" class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div id="chatEmpty" class="flex flex-col items-center justify-center h-full text-center py-12">
+        <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
+          <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <p class="text-zinc-500 text-xs font-medium">Select text in the PDF</p>
+        <p class="text-zinc-700 text-[10px] mt-1 max-w-[160px] leading-relaxed">
+          Highlight anything to explain, quiz, or create flashcards
+        </p>
+      </div>
+    </div>
+
+    <!-- Streaming indicator -->
+    <div id="streamingIndicator" class="hidden flex-shrink-0 px-4 pb-2">
+      <div class="flex items-center gap-2 text-[11px] text-zinc-500">
+        <div class="flex gap-1">
+          <span class="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style="animation-delay:0ms"></span>
+          <span class="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style="animation-delay:150ms"></span>
+          <span class="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style="animation-delay:300ms"></span>
+        </div>
+        <span>Thinking…</span>
+      </div>
+    </div>
+
+    <!-- ── Sticky chat input box ── -->
+    <div class="flex-shrink-0 border-t border-zinc-800/60 p-2.5">
+      <div class="flex items-end gap-1.5 bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-2 focus-within:border-violet-500/50 transition-colors">
+        <textarea
+          id="chatInput"
+          rows="1"
+          placeholder="Ask about this document…"
+          class="flex-1 bg-transparent text-[12px] text-zinc-200 placeholder-zinc-600 resize-none outline-none leading-relaxed max-h-24"
+        ></textarea>
+        <button id="chatSendBtn" title="Send"
+          class="flex-shrink-0 w-7 h-7 rounded-lg bg-violet-600 hover:bg-violet-500 flex items-center justify-center transition-colors disabled:opacity-40">
+          <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+      <p class="text-[9px] text-zinc-700 mt-1.5 px-1">
+        Without a highlight, questions use the whole document as context.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── QUIZ TAB ──────────────────────────────────────────────────────────── -->
+  <div id="tab-quiz" class="tab-content hidden flex-col flex-1 overflow-hidden">
+    <div id="quizContent" class="flex-1 overflow-y-auto px-4 py-4">
+      <div id="quizLoading" class="hidden flex-col items-center justify-center py-16 gap-3">
+        <div class="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin"></div>
+        <p class="text-zinc-500 text-xs">Building your quiz…</p>
+      </div>
+      <div id="quizEmpty" class="flex flex-col items-center justify-center h-full text-center py-12">
+        <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
+          <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7l2 2 4-4"/>
+          </svg>
+        </div>
+        <p class="text-zinc-500 text-xs font-medium">No quiz yet</p>
+        <p class="text-zinc-700 text-[10px] mt-1 max-w-[160px]">Select text and click "Generate Quiz"</p>
+      </div>
+      <div id="quizQuestions" class="space-y-4"></div>
+    </div>
+  </div>
+
+  <!-- ── FLASHCARDS TAB ────────────────────────────────────────────────────── -->
+  <div id="tab-flashcards" class="tab-content hidden flex-col flex-1 overflow-hidden">
+    <div id="flashcardsContent" class="flex-1 overflow-y-auto px-4 py-4">
+      <div id="flashcardsLoading" class="hidden flex-col items-center justify-center py-16 gap-3">
+        <div class="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin"></div>
+        <p class="text-zinc-500 text-xs">Creating flashcards…</p>
+      </div>
+      <div id="flashcardsEmpty" class="flex flex-col items-center justify-center h-full text-center py-12">
+        <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
+          <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+          </svg>
+        </div>
+        <p class="text-zinc-500 text-xs font-medium">No flashcards yet</p>
+        <p class="text-zinc-700 text-[10px] mt-1 max-w-[160px]">Select text and click "Create Flashcards"</p>
+      </div>
+      <div id="flashcardsList" class="space-y-3"></div>
+    </div>
+  </div>
+
+</aside>
