@@ -4,6 +4,7 @@ const session = require('express-session');
 const flash = require('connect-flash');
 const path = require('path');
 const connectDB = require('./config/db');
+const MongoStore = require('connect-mongo')(session);
 
 const app = express();
 connectDB();
@@ -21,12 +22,12 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Session
 // With this:
-const MongoStore = require('connect-mongo');
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'fallback-secret-key',
   resave: false,
   saveUninitialized: false,
-  store: MongoStore.create({ mongoUrl: process.env.MONGO_URI }),
+  store: new MongoStore({ mongooseConnection: require('mongoose').connection }),
   cookie: { secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
